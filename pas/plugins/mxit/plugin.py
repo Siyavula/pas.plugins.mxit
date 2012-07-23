@@ -1,5 +1,3 @@
-"""Class: MXitHelper
-"""
 import os
 
 from AccessControl.SecurityInfo import ClassSecurityInfo
@@ -9,11 +7,20 @@ from Products.PluggableAuthService.plugins.BasePlugin import BasePlugin
 from Products.PluggableAuthService.utils import classImplements
 from Products.PluggableAuthService.interfaces.plugins import \
     ILoginPasswordHostExtractionPlugin
-from Products.PluggableAuthService.interfaces.plugins import  \
-    IAuthenticationPlugin
 
 import interface
 import plugins
+
+def password_hash(userid):
+    secret = os.environ['MXIT_SECRET']
+    hstr = userid + secret
+    m = md5()
+    m.update(hstr)
+    return m.hexdigest()
+
+def member_id(userid):
+    return '%s@mxit.com' % userid
+
 
 class MXitHelper(BasePlugin):
     """ Authenticate MXit users as members
@@ -26,15 +33,6 @@ class MXitHelper(BasePlugin):
         self._setId( id )
         self.title = title
 
-    def _password_hash(self):
-        login = self.REQUEST.get('X-MXit-ID-R')
-        internaluserid = self.REQUEST.get('X-MXit-USERID-R')
-        secret = os.environ['MXIT_HASH']
-        hstr = login + internaluserid + secret
-        m = md5()
-        m.update(hstr)
-        return m.hexdigest()
-
     #
     #   ILoginPasswordExtractionPlugin implementation
     #
@@ -43,46 +41,18 @@ class MXitHelper(BasePlugin):
         """ Extract credentials from cookie or 'request'. """
         creds = {}
 
-        if not os.environ.has_key('MXIT_HASH'):
+        if not os.environ.has_key('MXIT_SECRET'):
             return {}
 
-        if request.has_key('X-MXit-ID-R'):
-            login = '_mxit_' % request.get('X-MXit-ID-R')
-            creds['password'] = self._password_hash()
-
-        if creds:
-            creds['remote_host'] = request.get('REMOTE_HOST', '')
-
-            try:
-                creds['remote_address'] = request.getClientAddr()
-            except AttributeError:
-                creds['remote_address'] = request.get('REMOTE_ADDR', '')
+        if request.has_key('X-MXit-USERID-R'):
+            userid = member_id(request.get('X-MXit-USERID-R'))
+            creds['password'] = password_hash(userid)
 
         return creds
-
-    #
-    #   IAuthenticationPlugin implementation
-    #
-    security.declarePrivate( 'authenticateCredentials' )
-    def authenticateCredentials(self, credentials):
-        """ See IAuthenticationPlugin.
-
-        o We expect the credentials to be those returned by
-          ILoginPasswordExtractionPlugin.
-        """
-        login = credentials.get('login')
-        password = credentials.get( 'password' )
-
-        if login is None or password is None:
-            return None
-
-        if password == self._password_hash():
-            return login, login
 
 
 classImplements(MXitHelper,
                 ILoginPasswordHostExtractionPlugin,
-                IAuthenticationPlugin,
                 interface.IMXitHelper)
 
 InitializeClass(MXitHelper)
