@@ -51,9 +51,8 @@ class MXitHelper(BasePlugin):
     def extractCredentials(self, request):
         """ Extract credentials from cookie or 'request'. """
         creds = {}
-        context = aq_parent(self)
 
-        ppt = getToolByName(context, 'portal_properties')
+        ppt = getToolByName(self, 'portal_properties')
         secret = ppt.site_properties.getProperty(SECRET_KEY)
         if not secret:
             return {}
@@ -62,7 +61,10 @@ class MXitHelper(BasePlugin):
             userid = member_id(request.get(USER_ID_TOKEN))
             if not userid:
                 return {}
-            creds['password'] = password_hash(context, userid)
+            creds['login'] = userid
+            creds['password'] = password_hash(self, userid)
+            creds['remote_host'] = request.get('REMOTE_HOST', '')
+            creds['remote_address'] = request.get('REMOTE_ADDR', '')
 
         return creds
 
