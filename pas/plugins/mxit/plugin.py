@@ -15,7 +15,8 @@ import interface
 import plugins
 
 
-USER_ID_TOKEN = 'X-MXit-USERID-R'
+USER_ID_TOKEN = 'HTTP_X_MXIT_USERID_R'
+
 SECRET_KEY = 'mxit_secret'
 
 def password_hash(context, userid):
@@ -28,7 +29,7 @@ def password_hash(context, userid):
 
 def member_id(userid):
     if not userid:
-        raise AttributeError('A valid userid is required.')
+        return None
     return '%s@mxit.com' % userid
 
 
@@ -59,6 +60,8 @@ class MXitHelper(BasePlugin):
 
         if request.has_key(USER_ID_TOKEN):
             userid = member_id(request.get(USER_ID_TOKEN))
+            if not userid:
+                return {}
             creds['password'] = password_hash(context, userid)
 
         return creds
